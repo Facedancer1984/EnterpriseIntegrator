@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/services/flashpay" name="IntegralFlashPayAPI" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" protocol="http" url-mapping="/getlist">
+        <inSequence>
+            <log description="logIn1" level="custom" separator="***">
+                <property expression="$trp:Content-Type" name="myContentType"/>
+            </log>
+            <payloadFactory description="requestPayload" media-type="xml">
+                <format>
+                    <Data>
+                        <Request>
+                            <RqHeader>
+                                <idMsgType>$1</idMsgType>
+                            </RqHeader>
+                            <body>
+                                <ListName>
+                                    <IdList>$2</IdList>
+                                </ListName>
+                            </body>
+                            <RqFooter>
+                                <MsgDateTime>$3</MsgDateTime>
+                                <idKey>$4</idKey>
+                            </RqFooter>
+                        </Request>
+                        <SignMsg/>
+                    </Data>
+                </format>
+                <args>
+                    <arg evaluator="xml" expression="//msgTypeId"/>
+                    <arg evaluator="xml" expression="//listId"/>
+                    <arg evaluator="xml" expression="get-property('SYSTEM_DATE', 'yyyy.MM.dd HH:mm:ss')"/>
+                    <arg evaluator="xml" expression="//key"/>
+                </args>
+            </payloadFactory>
+            <class name="com.wso2ei.integral.SecureSignMediator"/>
+            <!--log description="signLog" level="custom" separator="***">
+                <property expression="$ctx:SIGN" name="SIGN is: "/>
+            </log-->
+            <property expression="$ctx:SIGN" name="SIGN" scope="default" type="STRING"/>
+            <enrich>
+                <source clone="true" property="SIGN" type="property"/>
+                <target xpath="$env/*[local-name()='Body']/*[local-name()='Data']/*[local-name()='SignMsg']"/>
+            </enrich>
+            <log description="logAfter" level="custom" separator="***">
+                <property expression="$env/*[local-name()='Body']" name="Payload after"/>
+            </log>
+            <respond/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence>
+            <log>
+                <property expression="$ctx:ERROR_MESSAGE" name="flashpayError"/>
+            </log>
+        </faultSequence>
+    </resource>
+</api>
