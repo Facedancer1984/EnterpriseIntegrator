@@ -5,33 +5,66 @@
             <log description="logIn1" level="custom" separator="***">
                 <property expression="$trp:Content-Type" name="myContentType"/>
             </log>
-            <payloadFactory description="requestPayload" media-type="xml">
-                <format>
-                    <Data>
-                        <Request>
-                            <RqHeader>
-                                <idMsgType>$1</idMsgType>
-                            </RqHeader>
-                            <body>
-                                <ListName>
-                                    <IdList>$2</IdList>
-                                </ListName>
-                            </body>
-                            <RqFooter>
-                                <MsgDateTime>$3</MsgDateTime>
-                                <idKey>$4</idKey>
-                            </RqFooter>
-                        </Request>
-                        <SignMsg/>
-                    </Data>
-                </format>
-                <args>
-                    <arg evaluator="xml" expression="//msgTypeId"/>
-                    <arg evaluator="xml" expression="//listId"/>
-                    <arg evaluator="xml" expression="get-property('SYSTEM_DATE', 'yyyy.MM.dd HH:mm:ss')"/>
-                    <arg evaluator="xml" expression="//key"/>
-                </args>
-            </payloadFactory>
+            <filter regex="application/xml" source="$trp:Content-Type">
+                <then>
+                    <payloadFactory description="requestPayloadXML" media-type="xml">
+                        <format>
+                            <Data>
+                                <Request>
+                                    <RqHeader>
+                                        <idMsgType>$1</idMsgType>
+                                    </RqHeader>
+                                    <body>
+                                        <ListName>
+                                            <IdList>$2</IdList>
+                                        </ListName>
+                                    </body>
+                                    <RqFooter>
+                                        <MsgDateTime>$3</MsgDateTime>
+                                        <idKey>$4</idKey>
+                                    </RqFooter>
+                                </Request>
+                                <SignMsg/>
+                            </Data>
+                        </format>
+                        <args>
+                            <arg evaluator="xml" expression="//msgTypeId"/>
+                            <arg evaluator="xml" expression="//listId"/>
+                            <arg evaluator="xml" expression="get-property('SYSTEM_DATE', 'yyyy.MM.dd HH:mm:ss')"/>
+                            <arg evaluator="xml" expression="//key"/>
+                        </args>
+                    </payloadFactory>
+                </then>
+                <else>
+                    <payloadFactory description="requestPayloadXML" media-type="xml">
+                        <format>
+                            <Data>
+                                <Request>
+                                    <RqHeader>
+                                        <idMsgType>$1</idMsgType>
+                                    </RqHeader>
+                                    <body>
+                                        <ListName>
+                                            <IdList>$2</IdList>
+                                        </ListName>
+                                    </body>
+                                    <RqFooter>
+                                        <MsgDateTime>$3</MsgDateTime>
+                                        <idKey>$4</idKey>
+                                    </RqFooter>
+                                </Request>
+                                <SignMsg/>
+                            </Data>
+                        </format>
+                        <args>
+                            <arg evaluator="json" expression="$.msgTypeId"/>
+                            <arg evaluator="json" expression="$.listId"/>
+                            <arg evaluator="xml" expression="get-property('SYSTEM_DATE', 'yyyy.MM.dd HH:mm:ss')"/>
+                            <arg evaluator="json" expression="$.key"/>
+                        </args>
+                    </payloadFactory>
+                </else>
+            </filter>
             <class name="com.wso2ei.integral.SecureSignMediator"/>
             <!--log description="signLog" level="custom" separator="***">
                 <property expression="$ctx:SIGN" name="SIGN is: "/>
@@ -44,13 +77,69 @@
             <log description="logAfter" level="custom" separator="***">
                 <property expression="$env/*[local-name()='Body']" name="Payload after"/>
             </log>
-            <respond/>
+            <send>
+                <endpoint key="FlashPayEndpoint_Test"/>
+            </send>
         </inSequence>
-        <outSequence/>
+        <outSequence>
+            <log level="full"/>
+            <class name="com.wso2ei.integral.SecureSignMediator"/>
+            <filter regex="false" source="get-property('RESPONSE_SING_ISVALID')">
+                <then>
+                    <enrich>
+                        <source clone="false" type="inline">
+                            <error>error verifying sign</error>
+                        </source>
+                        <target type="body"/>
+                    </enrich>
+                </then>
+                <else/>
+            </filter>
+            <filter regex="application/json" source="$trp:Content-Type">
+                <then>
+                    <property name="messageType" scope="axis2" type="STRING" value="application/json"/>
+                </then>
+                <else/>
+            </filter>
+            <send/>
+        </outSequence>
         <faultSequence>
             <log>
                 <property expression="$ctx:ERROR_MESSAGE" name="flashpayError"/>
             </log>
+            <send/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" protocol="http" url-mapping="/getcomission">
+        <inSequence>
+            <log description="logIn1" level="custom" separator="***">
+                <property expression="$trp:Content-Type" name="myContentType"/>
+            </log>
+            <payloadFactory description="requestPayloadXML" media-type="xml">
+                <format>
+                    <body>
+                        <serviceId>$1</serviceId>
+                        <amount>$2</amount>
+                    </body>
+                </format>
+                <args>
+                    <arg evaluator="xml" expression="//serviceId"/>
+                    <arg evaluator="xml" expression="//amount"/>
+                </args>
+            </payloadFactory>
+            <send>
+                <endpoint key="IntegralComissionsEndpoint_Test"/>
+            </send>
+        </inSequence>
+        <outSequence>
+            <log level="full"/>
+            <send/>
+        </outSequence>
+        <faultSequence>
+            <log>
+                <property expression="$ctx:ERROR_MESSAGE" name="IntegralError"/>
+            </log>
+            <send/>
         </faultSequence>
     </resource>
 </api>
